@@ -9,10 +9,20 @@
   const baseUrl = currentScript ? currentScript.getAttribute("data-api-url") || "" : "";
 
   let isOpen = false;
+  let exampleText = '"I need a full rewire for a 3-bed house"';
+  const url = window.location.href.toLowerCase();
+  if (url.includes('carpentry') || url.includes('construction')) {
+    exampleText = '"I need to hang 5 internal doors"';
+  } else if (url.includes('plumbing')) {
+    exampleText = '"I need a new combi boiler installed"';
+  } else if (url.includes('landscaping')) {
+    exampleText = '"I need a 20sqm patio laid"';
+  }
+
   let chatHistory = [
     {
       role: "model",
-      text: '{"status":"clarifying","reply":"Hi! I am the AI Estimation Tool. \\nTell me a bit about your project (e.g. \\"I need a full rewire for a 3-bed house\\") so I can calculate a quote for you."}'
+      text: `{"status":"clarifying","reply":"Hi! I am the AI Estimation Tool. \\nTell me a bit about your project (e.g. ${exampleText}) so I can calculate a quote for you."}`
     }
   ];
   let isLoading = false;
