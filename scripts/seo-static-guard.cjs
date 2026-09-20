@@ -109,6 +109,28 @@ function loadRedirects(dir) {
   return map;
 }
 
+/**
+ * Pages the site's own sitemap generator deliberately leaves out.
+ *
+ * scripts/generate_sitemap.mjs carries an EXCLUDED_HTML set - 404, search,
+ * enquiry, backups, templates. That list IS the intent, so reporting those
+ * pages as "unlisted" argues with a decision already made, and adding them to
+ * the sitemap would be undone on the generator's next run.
+ *
+ * Read the declared intent rather than infer it: the same lesson as isRetired,
+ * which took three guesses before it read server.js.
+ */
+function loadSitemapExclusions(dir) {
+  const out = new Set();
+  const p = path.join(dir, "scripts", "generate_sitemap.mjs");
+  if (!fs.existsSync(p)) return out;
+  const src = fs.readFileSync(p, "utf8");
+  const m = /EXCLUDED_HTML\s*=\s*new Set\(\[([\s\S]*?)\]\)/.exec(src);
+  if (!m) return out;
+  for (const q of m[1].matchAll(/['"]([^'"]+\.html)['"]/g)) out.add(q[1].toLowerCase());
+  return out;
+}
+
 function loadSitemap(dir) {
   const p = path.join(dir, "sitemap.xml");
   const set = new Set();
@@ -196,6 +218,7 @@ function auditSite(dir) {
 
   const redirects = loadRedirects(dir);
   const sitemap = loadSitemap(dir);
+  const sitemapExcluded = loadSitemapExclusions(dir);
   const present = new Set(files.map((f) => f.toLowerCase()));
   for (const extra of servedElsewhere(dir)) present.add(extra);
   const inboundLinks = new Map(files.map((f) => [f.toLowerCase(), 0]));
@@ -259,6 +282,8 @@ function auditSite(dir) {
     // A page that says noindex has opted out of ranking: absent from the
     // sitemap and unlinked are both correct for it, not findings.
     if (noindex) continue;
+    // Excluded from the sitemap on purpose by the site's own generator.
+    if (sitemapExcluded.has(f.toLowerCase())) continue;
     // A page that 301s is retired on purpose; its canonical and its absence from
     // the sitemap are both correct and not a mismatch.
     if (isRetired(redirects, f)) continue;
