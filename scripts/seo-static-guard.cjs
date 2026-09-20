@@ -162,6 +162,20 @@ function collectHrefs(html) {
   return out;
 }
 
+/**
+ * True if the page explicitly asks not to be indexed.
+ *
+ * A noindex page is SUPPOSED to be absent from the sitemap and does not need
+ * inbound links, so reporting it as "unlisted" or "orphan" is noise - and noise
+ * is how a warning list gets ignored. 9 of 11 unlisted warnings across the
+ * estate were pages carrying noindex on purpose (search, privacy, cookies,
+ * payment-details, a hidden alternate-brand homepage).
+ */
+function isNoindex(html) {
+  const m = /<meta\s+name=["']robots["']\s+content=["']([^"']*)["']/i.exec(html);
+  return !!m && /(^|[ ,])noindex([ ,]|$)/i.test(m[1].trim());
+}
+
 function canonicalOf(html) {
   const m = /<link\b[^>]*\brel\s*=\s*["']canonical["'][^>]*>/i.exec(html);
   if (!m) return null;
@@ -191,6 +205,7 @@ function auditSite(dir) {
     const raw = fs.readFileSync(path.join(dir, f), "utf8");
     const html = strip(raw);
     parsed.set(f, { raw, html, ids: collectIds(html), canonical: canonicalOf(html),
+      noindex: isNoindex(raw),
       // A file carrying {{PLACEHOLDER}} is a template, not a page: its links and
       // canonical are unrendered and mean nothing until a post is generated from it.
       isTemplate: /\{\{[A-Z_]+\}\}/.test(raw) });
@@ -239,8 +254,11 @@ function auditSite(dir) {
 
   // Canonical tier consistency, and orphans among the pages that are meant to rank.
   for (const f of files) {
-    const { canonical, isTemplate } = parsed.get(f);
+    const { canonical, isTemplate, noindex } = parsed.get(f);
     if (!canonical || isTemplate) continue;
+    // A page that says noindex has opted out of ranking: absent from the
+    // sitemap and unlinked are both correct for it, not findings.
+    if (noindex) continue;
     // A page that 301s is retired on purpose; its canonical and its absence from
     // the sitemap are both correct and not a mismatch.
     if (isRetired(redirects, f)) continue;
