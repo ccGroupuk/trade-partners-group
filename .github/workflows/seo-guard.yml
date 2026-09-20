@@ -1,0 +1,33 @@
+name: SEO static guard
+
+# Runs on PUSH, not on a nightly cron. The existing daily-site-health job checks
+# the LIVE host, so it can only ever report damage that already shipped; this
+# one reads the repo, so a dead button or a self-deindexing sitemap entry is
+# caught before it reaches anybody.
+#
+# Source of truth for the script is the CRM repo (scripts/seo-static-guard.cjs).
+# It is copied here because each brand site is its own repository; if you change
+# it, change it there and re-copy.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  seo-static:
+    name: Internal links, anchors and canonical tiers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          lfs: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # No arguments: audits the repository root, which is the site root here.
+      - name: Audit the site
+        run: node scripts/seo-static-guard.cjs
